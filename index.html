@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumina Health Planner</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Prompt', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#6366f1', // Indigo
+                        secondary: '#ec4899', // Pink
+                        background: '#f8fafc',
+                    },
+                    animation: {
+                        'float': 'float 3s ease-in-out infinite',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Custom Styling for Elegant Scrollbars & Animations */
+        body {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 100%);
+            min-height: 100vh;
+            background-attachment: fixed;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+        }
+
+        .task-enter {
+            animation: slideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0; /* Starts hidden for animation */
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Micro-interaction: Satisfying Checkbox Pop */
+        .checkbox-custom:checked + div {
+            animation: popCheck 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            border-color: transparent;
+        }
+        
+        @keyframes popCheck {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); background-color: #10b981; }
+        }
+
+        .checkbox-custom:checked + div svg {
+            opacity: 1;
+            transform: scale(1);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.1s;
+        }
+        .checkbox-custom:not(:checked) + div svg {
+            transform: scale(0.5);
+        }
+
+        /* Timeline specific styles */
+        .timeline-dot {
+            box-shadow: 0 0 0 4px rgba(255,255,255,0.8);
+            transition: all 0.3s ease;
+        }
+
+        /* Filter Button Active State */
+        .filter-active {
+            box-shadow: 0 0 0 2px white, 0 0 0 4px #818cf8;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body class="font-sans text-slate-800 antialiased selection:bg-indigo-200 selection:text-indigo-900">
+
+    <header class="pt-8 pb-6 px-6">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="text-center md:text-left">
+                <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-pink-500 hover:scale-[1.02] transition-transform cursor-default">
+                    <i class="fa-solid fa-leaf mr-2 text-indigo-400 animate-pulse-slow"></i>Lumina Health
+                </h1>
+                <p class="text-slate-500 mt-1 text-sm font-medium" id="current-date">จัดการสุขภาพของคุณในทุกๆ วัน</p>
+            </div>
+            
+            <!-- Upgraded Progress Bar -->
+            <div class="glass-card px-5 py-3 rounded-2xl flex flex-col gap-2 w-full md:w-64 group cursor-default">
+                <div class="flex justify-between items-center text-sm font-semibold">
+                    <span class="text-slate-600 flex items-center gap-1.5">
+                        <i class="fa-solid fa-trophy text-amber-400 group-hover:rotate-12 transition-transform"></i> ความคืบหน้า
+                    </span>
+                    <span id="progress-text" class="text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-md transition-colors">0%</span>
+                </div>
+                <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                    <div id="progress-bar" class="h-full bg-gradient-to-r from-indigo-400 to-pink-400 w-0 transition-all duration-1000 cubic-bezier(0.4, 0, 0.2, 1) relative">
+                        <!-- Shimmer effect on progress bar -->
+                        <div class="absolute top-0 left-0 right-0 bottom-0 bg-white opacity-20 w-full" style="background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent); animation: shimmer 2s infinite;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-6 pb-16">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Left Column: Form & Task List -->
+            <div class="lg:col-span-4 flex flex-col gap-6">
+                
+                <div class="glass-card rounded-3xl p-6 relative overflow-hidden group">
+                    <div class="absolute -right-10 -top-10 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl group-hover:bg-indigo-500/10 transition-colors"></div>
+                    
+                    <h2 class="text-lg font-semibold mb-4 text-slate-700 flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-500 flex items-center justify-center">
+                            <i class="fa-solid fa-plus"></i>
+                        </div>
+                        เพิ่มกิจกรรม
+                    </h2>
+                    
+                    <form id="add-task-form" class="space-y-4 relative z-10">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="col-span-2">
+                                <label class="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">ชื่อกิจกรรม</label>
+                                <input type="text" id="task-title" required placeholder="เช่น ทานยาวิตามินซี, วิ่งเหยาะๆ..." 
+                                    class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white/60 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all outline-none text-sm shadow-sm hover:border-indigo-200">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">เวลา</label>
+                                <input type="time" id="task-time" required 
+                                    class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white/60 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all outline-none text-sm shadow-sm hover:border-indigo-200">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">หมวดหมู่</label>
+                                <select id="task-category" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white/60 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all outline-none text-sm cursor-pointer shadow-sm hover:border-indigo-200">
+                                    <option value="medicine">💊 ยา/วิตามิน</option>
+                                    <option value="exercise">🏃 ออกกำลังกาย</option>
+                                    <option value="diet">🥗 อาหาร</option>
+                                    <option value="water">💧 ดื่มน้ำ</option>
+                                    <option value="sleep">🛌 พักผ่อน</option>
+                                    <option value="other">✨ อื่นๆ</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="w-full py-3 mt-2 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl font-medium shadow-lg shadow-indigo-200/50 transition-all duration-300 transform hover:-translate-y-1 active:scale-95 active:shadow-sm text-sm flex justify-center items-center gap-2">
+                            <i class="fa-solid fa-check-circle"></i> บันทึกกิจกรรม
+                        </button>
+                    </form>
+                </div>
+
+                <div class="glass-card rounded-3xl p-6 flex-1 flex flex-col">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold text-slate-700 flex items-center">
+                            <i class="fa-solid fa-list-check text-pink-400 mr-2"></i> รายการวันนี้
+                        </h2>
+                        <span id="total-tasks-badge" class="bg-white border border-slate-100 text-slate-500 text-xs py-1 px-3 rounded-full font-semibold shadow-sm">0 รายการ</span>
+                    </div>
+                    
+                    <div id="task-list" class="space-y-3 overflow-y-auto max-h-[400px] pr-2 pb-2">
+                        <!-- Tasks will be injected here via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-8">
+                <div class="glass-card rounded-3xl p-6 lg:p-8 h-full">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 border-b border-slate-100 pb-5 gap-4">
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                                ไทม์ไลน์สุขภาพ 
+                                <span id="filter-indicator" class="hidden bg-indigo-100 text-indigo-600 text-xs px-2 py-1 rounded-md font-medium"><i class="fa-solid fa-filter text-[10px]"></i> กรองอยู่</span>
+                            </h2>
+                            <p class="text-slate-500 text-sm mt-1">คลิกที่แท็บสีด้านขวาเพื่อกรองดูหมวดหมู่เฉพาะ</p>
+                        </div>
+                        
+                        <!-- Interactive Filters -->
+                        <div class="flex flex-wrap gap-2" id="category-filters">
+                            <button onclick="toggleFilter('all')" data-filter="all" class="filter-btn filter-active flex items-center gap-1.5 text-xs font-semibold bg-slate-800 text-white px-3 py-1.5 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 shadow-sm">
+                                ทั้งหมด
+                            </button>
+                            <button onclick="toggleFilter('medicine')" data-filter="medicine" class="filter-btn flex items-center gap-1.5 text-xs font-semibold bg-pink-100 text-pink-700 hover:bg-pink-200 px-3 py-1.5 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95">
+                                <span class="w-2 h-2 rounded-full bg-pink-500"></span> ยา
+                            </button>
+                            <button onclick="toggleFilter('exercise')" data-filter="exercise" class="filter-btn flex items-center gap-1.5 text-xs font-semibold bg-orange-100 text-orange-700 hover:bg-orange-200 px-3 py-1.5 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95">
+                                <span class="w-2 h-2 rounded-full bg-orange-500"></span> ออกกำลัง
+                            </button>
+                            <button onclick="toggleFilter('diet')" data-filter="diet" class="filter-btn flex items-center gap-1.5 text-xs font-semibold bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-3 py-1.5 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> อาหาร
+                            </button>
+                            <button onclick="toggleFilter('water')" data-filter="water" class="filter-btn flex items-center gap-1.5 text-xs font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95">
+                                <span class="w-2 h-2 rounded-full bg-blue-500"></span> น้ำ
+                            </button>
+                            <button onclick="toggleFilter('sleep')" data-filter="sleep" class="filter-btn flex items-center gap-1.5 text-xs font-semibold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-3 py-1.5 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95">
+                                <span class="w-2 h-2 rounded-full bg-indigo-500"></span> นอน
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="relative pl-4 sm:pl-8 py-2">
+                        <!-- Main Vertical Timeline Line -->
+                        <div class="absolute left-4 sm:left-8 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-100 via-pink-100 to-indigo-50 rounded-full shadow-inner"></div>
+                        
+                        <div id="timeline-container" class="space-y-8">
+                            <!-- Timeline items will be injected here via JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // Category Definitions for UI (Colors & Icons)
+        const categories = {
+            medicine: { name: 'ยา/วิตามิน', icon: 'fa-pills', color: 'pink', bg: 'bg-pink-100', text: 'text-pink-700', dot: 'bg-pink-400', border: 'border-pink-200' },
+            exercise: { name: 'ออกกำลังกาย', icon: 'fa-dumbbell', color: 'orange', bg: 'bg-orange-100', text: 'text-orange-700', dot: 'bg-orange-400', border: 'border-orange-200' },
+            diet: { name: 'อาหาร', icon: 'fa-utensils', color: 'emerald', bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-400', border: 'border-emerald-200' },
+            water: { name: 'ดื่มน้ำ', icon: 'fa-glass-water', color: 'blue', bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-400', border: 'border-blue-200' },
+            sleep: { name: 'พักผ่อน', icon: 'fa-bed', color: 'indigo', bg: 'bg-indigo-100', text: 'text-indigo-700', dot: 'bg-indigo-400', border: 'border-indigo-200' },
+            other: { name: 'อื่นๆ', icon: 'fa-star', color: 'purple', bg: 'bg-purple-100', text: 'text-purple-700', dot: 'bg-purple-400', border: 'border-purple-200' }
+        };
+
+        // State variables
+        let tasks = JSON.parse(localStorage.getItem('healthPlannerTasks')) || [];
+        let currentFilter = 'all';
+
+        // DOM Elements
+        const form = document.getElementById('add-task-form');
+        const taskListEl = document.getElementById('task-list');
+        const timelineContainerEl = document.getElementById('timeline-container');
+        const totalTasksBadgeEl = document.getElementById('total-tasks-badge');
+        const progressBarEl = document.getElementById('progress-bar');
+        const progressTextEl = document.getElementById('progress-text');
+        const filterIndicatorEl = document.getElementById('filter-indicator');
+        
+        function init() {
+            // Set current date in header
+            const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const today = new Date().toLocaleDateString('th-TH', dateOptions);
+            document.getElementById('current-date').textContent = today;
+
+            renderAll();
+        }
+
+        window.toggleFilter = function(category) {
+            currentFilter = category;
+            
+            // Update button UI
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('filter-active', 'ring-2', 'ring-offset-2');
+                if (btn.dataset.filter === category) {
+                    if(category === 'all') {
+                        btn.classList.add('filter-active');
+                    } else {
+                        btn.classList.add('ring-2', 'ring-offset-2', 'ring-' + categories[category].color + '-400', 'scale-105');
+                    }
+                }
+            });
+
+            // Show/Hide filter badge indicator
+            if (category !== 'all') {
+                filterIndicatorEl.classList.remove('hidden');
+                filterIndicatorEl.innerHTML = `<i class="fa-solid ${categories[category].icon} text-[10px] mr-1"></i> กรอง: ${categories[category].name}`;
+            } else {
+                filterIndicatorEl.classList.add('hidden');
+            }
+
+            renderAll(false); // don't sort again just to filter
+        }
+
+        function saveTasks() {
+            localStorage.setItem('healthPlannerTasks', JSON.stringify(tasks));
+        }
+
+        function sortTasks() {
+            tasks.sort((a, b) => a.time.localeCompare(b.time));
+        }
+
+        function renderAll(doSort = true) {
+            if (doSort) sortTasks();
+            
+            const filteredTasks = currentFilter === 'all' 
+                ? tasks 
+                : tasks.filter(t => t.category === currentFilter);
+
+            renderList(filteredTasks);
+            renderTimeline(filteredTasks);
+            updateStats(); // Stats always reflect TOTAL tasks, not filtered
+            saveTasks();
+        }
+
+        function updateStats() {
+            const completed = tasks.filter(t => t.completed).length;
+            const total = tasks.length;
+            const percentage = total === 0 ? 0 : Math.round((completed / total) * 100);
+            
+            // Update labels
+            totalTasksBadgeEl.textContent = `${total} รายการ`;
+            progressTextEl.textContent = `${percentage}%`;
+            progressBarEl.style.width = `${percentage}%`;
+            
+            // Gamification/Micro-interaction on 100%
+            if (percentage === 100 && total > 0) {
+                progressBarEl.classList.remove('from-indigo-400', 'to-pink-400');
+                progressBarEl.classList.add('from-emerald-400', 'to-teal-500');
+                progressTextEl.classList.replace('text-indigo-600', 'text-emerald-600');
+                progressTextEl.classList.replace('bg-indigo-50', 'bg-emerald-100');
+            } else {
+                progressBarEl.classList.add('from-indigo-400', 'to-pink-400');
+                progressBarEl.classList.remove('from-emerald-400', 'to-teal-500');
+                progressTextEl.classList.replace('text-emerald-600', 'text-indigo-600');
+                progressTextEl.classList.replace('bg-emerald-100', 'bg-indigo-50');
+            }
+        }
+
+        function renderList(tasksToRender) {
+            if (tasksToRender.length === 0) {
+                const message = currentFilter === 'all' ? 'ยังไม่มีกิจกรรมในวันนี้' : 'ไม่มีกิจกรรมในหมวดหมู่นี้';
+                taskListEl.innerHTML = `
+                    <div class="text-center py-12 text-slate-400 text-sm flex flex-col items-center animate-float">
+                        <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-3 shadow-inner">
+                            <i class="fa-solid fa-ghost text-2xl text-slate-300"></i>
+                        </div>
+                        <p>${message}</p>
+                    </div>`;
+                return;
+            }
+
+            taskListEl.innerHTML = '';
+            
+            tasksToRender.forEach((task, index) => {
+                const cat = categories[task.category];
+                const isDone = task.completed;
+                const animDelay = index * 0.05;
+                
+                const taskEl = document.createElement('div');
+                taskEl.className = `task-enter flex items-center p-3.5 bg-white rounded-2xl border ${isDone ? 'border-slate-100 opacity-60' : cat.border + ' shadow-sm hover:-translate-y-0.5 hover:shadow-md'} transition-all duration-300 group`;
+                taskEl.style.animationDelay = `${animDelay}s`;
+                
+                taskEl.innerHTML = `
+                    <label class="relative flex items-center cursor-pointer mr-3">
+                        <input type="checkbox" class="checkbox-custom opacity-0 absolute h-0 w-0" ${isDone ? 'checked' : ''} onchange="toggleTask('${task.id}')">
+                        <div class="w-6 h-6 border-2 border-slate-300 rounded-full flex justify-center items-center transition-all duration-300 bg-white">
+                            <svg class="w-3.5 h-3.5 text-white opacity-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                    </label>
+                    
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-[10px] font-bold ${cat.bg} ${cat.text} px-2 py-0.5 rounded-md flex items-center gap-1 uppercase tracking-wide">
+                                <i class="fa-solid ${cat.icon}"></i> ${cat.name}
+                            </span>
+                            <span class="text-xs text-slate-400 font-semibold flex items-center gap-1">
+                                <i class="fa-regular fa-clock"></i> ${task.time}
+                            </span>
+                        </div>
+                        <h4 class="text-sm font-semibold ${isDone ? 'text-slate-400 line-through decoration-slate-300' : 'text-slate-700'} truncate transition-all duration-300" title="${task.title}">${task.title}</h4>
+                    </div>
+                    
+                    <button onclick="deleteTask('${task.id}')" class="w-8 h-8 rounded-full bg-red-50 text-red-400 hover:bg-red-500 hover:text-white flex justify-center items-center transition-all duration-300 opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100 focus:opacity-100 focus:scale-100 shadow-sm">
+                        <i class="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                `;
+                taskListEl.appendChild(taskEl);
+            });
+        }
+
+        function renderTimeline(tasksToRender) {
+            if (tasksToRender.length === 0) {
+                timelineContainerEl.innerHTML = `
+                    <div class="text-center py-20 text-slate-400 text-sm flex flex-col items-center animate-float">
+                        <div class="w-20 h-20 bg-indigo-50/50 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa-regular fa-calendar-check text-4xl text-indigo-300/50"></i>
+                        </div>
+                        <p class="font-medium">ยังไม่มีตารางเวลา</p>
+                        <p class="text-xs mt-1 opacity-70">เพิ่มกิจกรรมทางด้านซ้ายเพื่อเริ่มต้น</p>
+                    </div>`;
+                return;
+            }
+
+            timelineContainerEl.innerHTML = '';
+            
+            tasksToRender.forEach((task, index) => {
+                const cat = categories[task.category];
+                const isDone = task.completed;
+                const animDelay = index * 0.1;
+                
+                const itemEl = document.createElement('div');
+                itemEl.className = 'relative pl-6 sm:pl-12 task-enter group';
+                itemEl.style.animationDelay = `${animDelay}s`;
+                
+                itemEl.innerHTML = `
+                    <!-- Timeline Dot with Hover Effect -->
+                    <div class="absolute left-[-5px] sm:left-[-1px] top-4 w-3 h-3 sm:w-4 sm:h-4 rounded-full ${cat.dot} timeline-dot z-10 ${isDone ? 'opacity-40' : 'animate-pulse group-hover:scale-125'}"></div>
+                    
+                    <!-- Content Card with Lift Effect -->
+                    <div class="bg-white p-4 sm:p-5 rounded-2xl border ${isDone ? 'border-slate-100 bg-slate-50/50' : 'border-slate-100 shadow-lg shadow-slate-200/40 hover:-translate-y-1 hover:shadow-xl hover:border-' + cat.color + '-200'} transition-all duration-300 flex flex-col sm:flex-row sm:items-center gap-4 ${isDone ? 'opacity-60 grayscale-[20%]' : ''}">
+                        
+                        <!-- Time -->
+                        <div class="flex-shrink-0 w-16 sm:w-20 text-center sm:text-left">
+                            <div class="text-xl sm:text-2xl font-bold ${isDone ? 'text-slate-400' : 'text-slate-800'} tracking-tight">${task.time}</div>
+                            <div class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-0.5">น.</div>
+                        </div>
+                        
+                        <!-- Divider (Desktop) -->
+                        <div class="hidden sm:block w-px h-12 bg-slate-100 group-hover:bg-${cat.color}-100 transition-colors"></div>
+                        
+                        <!-- Info -->
+                        <div class="flex-1 flex flex-col justify-center text-center sm:text-left">
+                            <div class="flex items-center justify-center sm:justify-start gap-2.5 mb-1.5">
+                                <div class="w-7 h-7 rounded-full ${cat.bg} ${cat.text} flex justify-center items-center shadow-sm">
+                                    <i class="fa-solid ${cat.icon} text-xs"></i>
+                                </div>
+                                <span class="text-xs font-bold ${cat.text} uppercase tracking-wide opacity-80">${cat.name}</span>
+                            </div>
+                            <h3 class="text-base sm:text-lg font-bold ${isDone ? 'text-slate-400 line-through' : 'text-slate-800'}">${task.title}</h3>
+                        </div>
+                        
+                        <!-- Status Badge / Action -->
+                        <div class="flex-shrink-0 flex justify-center sm:block mt-2 sm:mt-0">
+                            <button onclick="toggleTask('${task.id}')" class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold border transition-all duration-300 transform hover:scale-105 active:scale-95 ${isDone 
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100' 
+                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 shadow-sm'}">
+                                ${isDone ? '<i class="fa-solid fa-check text-emerald-500"></i> สำเร็จแล้ว' : '<i class="fa-solid fa-play text-[10px]"></i> ทำเครื่องหมาย'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+                timelineContainerEl.appendChild(itemEl);
+            });
+        }
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const titleInput = document.getElementById('task-title').value;
+            const timeInput = document.getElementById('task-time').value;
+            const categoryInput = document.getElementById('task-category').value;
+            
+            const newTask = {
+                id: 'task_' + Date.now().toString(36) + Math.random().toString(36).substr(2),
+                title: titleInput,
+                time: timeInput,
+                category: categoryInput,
+                completed: false
+            };
+            
+            tasks.push(newTask);
+            
+            // Reset form
+            form.reset();
+            
+            // Re-render and Reset filter to 'all' when adding new task so user can see it
+            if(currentFilter !== 'all' && currentFilter !== categoryInput) {
+                toggleFilter('all');
+            } else {
+                renderAll();
+            }
+        });
+
+        window.toggleTask = function(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                renderAll(false); // don't sort, just re-render to apply classes
+            }
+        };
+
+        window.deleteTask = function(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            renderAll();
+        };
+
+        // Run Initialization when DOM is loaded
+        document.addEventListener('DOMContentLoaded', init);
+
+    </script>
+</body>
+</html>
